@@ -16,7 +16,7 @@ def patch(root):
             s = s.replace('"pointer-events-none z-10 h-14 shrink-0 overflow-hidden"',
                           '"pointer-events-none z-10 h-20 shrink-0 overflow-hidden"', 1)
             s = s.replace('"pointer-events-auto relative flex h-14 items-center gap-3 px-3"',
-                          '"pointer-events-auto relative flex h-20 items-center gap-3 pl-3 pr-4"', 1)
+                          '"pointer-events-auto relative flex h-20 items-center gap-3 pl-3 pr-[14px]"', 1)
             io.open(p, "w", encoding="utf-8").write(s)
             print("patched header height/padding", p)
 
