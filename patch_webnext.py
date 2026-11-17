@@ -63,12 +63,9 @@ def patch(root):
     assert old in s, "handleOpenTool not found"
     s = s.replace(old, 'if (kind !== "review" && kind !== "browser") setPanelMode(kind, "closed")', 1)
 
-    # 2e3: 侧栏右上角按钮组下移一点，避免贴着窗口标题栏控制按钮
-    s = s.replace('ml-1 flex shrink-0 items-center gap-[19px]',
-                  'ml-1 flex shrink-0 items-center gap-0.5', 1)
-    # 新建标签页 (+) 按钮也一起下移，和另外两个按钮对齐
-    s = s.replace('className="shrink-0 rounded-lg"',
-                  'className="shrink-0 rounded-lg"', 1)
+    # 2e3: 拉开全屏与收起侧栏按钮之间的间隔（原版 gap-0.5 -> gap-[19px]）
+    s = s.replace('ml-1 flex shrink-0 items-center gap-0.5',
+                  'ml-1 flex shrink-0 items-center gap-[19px]', 1)
 
     # 2f append BrowserPanel component at end of file
     browser_component = r'''
