@@ -16,7 +16,7 @@ def patch(root):
             s = s.replace('"pointer-events-none z-10 h-14 shrink-0 overflow-hidden"',
                           '"pointer-events-none z-10 h-20 shrink-0 overflow-hidden"', 1)
             s = s.replace('"pointer-events-auto relative flex h-14 items-center gap-3 px-3"',
-                          '"pointer-events-auto relative flex h-20 items-center gap-3 pl-3 pr-[13px]"', 1)
+                          '"pointer-events-auto relative flex h-20 items-center gap-3 pl-3 pr-[12px]"', 1)
             io.open(p, "w", encoding="utf-8").write(s)
             print("patched header height/padding", p)
 
@@ -64,7 +64,7 @@ def patch(root):
     s = s.replace(old, 'if (kind !== "review" && kind !== "browser") setPanelMode(kind, "closed")', 1)
 
     # 2e3: 侧栏右上角按钮组下移一点，避免贴着窗口标题栏控制按钮
-    s = s.replace('ml-1 flex shrink-0 items-center gap-6',
+    s = s.replace('ml-1 flex shrink-0 items-center gap-[22px]',
                   'ml-1 flex shrink-0 items-center gap-0.5', 1)
     # 新建标签页 (+) 按钮也一起下移，和另外两个按钮对齐
     s = s.replace('className="shrink-0 rounded-lg"',
