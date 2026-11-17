@@ -7,18 +7,18 @@
 import os, sys, io, json
 
 def patch(root):
-    # ---- 0. workspace-header.tsx : 给右侧留出窗口控制按钮(─ □ ✕)空间 ----
+    # ---- 0. workspace-header.tsx : 加大 header 高度让按钮下移脱离窗口控制按钮反应区，并加大右侧间距 ----
     p = os.path.join(root, "src", "components", "workspace-header.tsx")
     if os.path.isfile(p):
         s = io.open(p, encoding="utf-8").read()
-        old = '"pointer-events-auto relative flex h-14 items-center gap-3 px-3"'
-        if old in s:
-            s = s.replace(old, '"pointer-events-auto relative flex h-14 items-center gap-3 px-3"', 1)
-        # 下移后的按钮需要溢出 header，去掉裁剪
-        s = s.replace('"pointer-events-none z-10 h-14 shrink-0 overflow-hidden"',
-                      '"pointer-events-none z-10 h-14 shrink-0 overflow-hidden"', 1)
-        io.open(p, "w", encoding="utf-8").write(s)
-        print("patched header padding/overflow", p)
+        # 已经打过补丁则跳过
+        if 'h-20 shrink-0 overflow-hidden' not in s:
+            s = s.replace('"pointer-events-none z-10 h-14 shrink-0 overflow-hidden"',
+                          '"pointer-events-none z-10 h-20 shrink-0 overflow-hidden"', 1)
+            s = s.replace('"pointer-events-auto relative flex h-14 items-center gap-3 px-3"',
+                          '"pointer-events-auto relative flex h-20 items-center gap-3 pl-3 pr-4"', 1)
+            io.open(p, "w", encoding="utf-8").write(s)
+            print("patched header height/padding", p)
 
     # ---- 1. session-tool-tabs.ts : add "browser" kind ----
     p = os.path.join(root, "src", "components", "session-tool-tabs.ts")
@@ -64,7 +64,7 @@ def patch(root):
     s = s.replace(old, 'if (kind !== "review" && kind !== "browser") setPanelMode(kind, "closed")', 1)
 
     # 2e3: 侧栏右上角按钮组下移一点，避免贴着窗口标题栏控制按钮
-    s = s.replace('ml-1 flex shrink-0 items-center gap-0.5',
+    s = s.replace('ml-1 flex shrink-0 items-center gap-6',
                   'ml-1 flex shrink-0 items-center gap-0.5', 1)
     # 新建标签页 (+) 按钮也一起下移，和另外两个按钮对齐
     s = s.replace('className="shrink-0 rounded-lg"',
