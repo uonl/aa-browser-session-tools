@@ -13,7 +13,7 @@ def patch(root):
         s = io.open(p, encoding="utf-8").read()
         old = '"pointer-events-auto relative flex h-14 items-center gap-3 px-3"'
         if old in s:
-            s = s.replace(old, '"pointer-events-auto relative flex h-14 items-center gap-3 pl-3 pr-6"', 1)
+            s = s.replace(old, '"pointer-events-auto relative flex h-14 items-center gap-3 pl-3 pr-3"', 1)
         # 下移后的按钮需要溢出 header，去掉裁剪
         s = s.replace('"pointer-events-none z-10 h-14 shrink-0 overflow-hidden"',
                       '"pointer-events-none z-10 h-14 shrink-0 overflow-visible"', 1)
@@ -68,7 +68,7 @@ def patch(root):
                   'ml-1 flex shrink-0 translate-y-8 items-center gap-0.5', 1)
     # 新建标签页 (+) 按钮也一起下移，和另外两个按钮对齐
     s = s.replace('className="shrink-0 rounded-lg"',
-                  'className="shrink-0 translate-y-8 rounded-lg"', 1)
+                  'className="shrink-0 -translate-x-px translate-y-8 rounded-lg"', 1)
 
     # 2f append BrowserPanel component at end of file
     browser_component = r'''
