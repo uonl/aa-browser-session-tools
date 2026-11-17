@@ -13,7 +13,7 @@ def patch(root):
         s = io.open(p, encoding="utf-8").read()
         old = '"pointer-events-auto relative flex h-14 items-center gap-3 px-3"'
         if old in s:
-            s = s.replace(old, '"pointer-events-auto relative flex h-14 items-center gap-3 pl-3 pr-[140px]"', 1)
+            s = s.replace(old, '"pointer-events-auto relative flex h-14 items-center gap-3 pl-3 pr-[40px]"', 1)
             io.open(p, "w", encoding="utf-8").write(s)
             print("patched header right padding", p)
 
@@ -59,6 +59,10 @@ def patch(root):
     old = 'if (kind !== "review") setPanelMode(kind, "closed")'
     assert old in s, "handleOpenTool not found"
     s = s.replace(old, 'if (kind !== "review" && kind !== "browser") setPanelMode(kind, "closed")', 1)
+
+    # 2e3: 侧栏右上角按钮组下移一点，避免贴着窗口标题栏控制按钮
+    s = s.replace('ml-1 flex shrink-0 items-center gap-0.5',
+                  'ml-1 flex shrink-0 translate-y-5 items-center gap-0.5', 1)
 
     # 2f append BrowserPanel component at end of file
     browser_component = r'''
@@ -148,3 +152,4 @@ if __name__ == "__main__":
         sys.exit(1)
     patch(sys.argv[1])
     print("DONE")
+
