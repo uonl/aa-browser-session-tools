@@ -7,6 +7,16 @@
 import os, sys, io, json
 
 def patch(root):
+    # ---- 0. workspace-header.tsx : 给右侧留出窗口控制按钮(─ □ ✕)空间 ----
+    p = os.path.join(root, "src", "components", "workspace-header.tsx")
+    if os.path.isfile(p):
+        s = io.open(p, encoding="utf-8").read()
+        old = '"pointer-events-auto relative flex h-14 items-center gap-3 px-3"'
+        if old in s:
+            s = s.replace(old, '"pointer-events-auto relative flex h-14 items-center gap-3 pl-3 pr-[140px]"', 1)
+            io.open(p, "w", encoding="utf-8").write(s)
+            print("patched header right padding", p)
+
     # ---- 1. session-tool-tabs.ts : add "browser" kind ----
     p = os.path.join(root, "src", "components", "session-tool-tabs.ts")
     s = io.open(p, encoding="utf-8").read()
