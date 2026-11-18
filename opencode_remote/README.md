@@ -58,3 +58,15 @@ python apply_opencode.py --status   # 查看状态
 
 - **AA 升级会覆盖 Connector 源码**并重生成缓存目录，升级后重跑一次注入；脚本会自动发现所有目录（含新生成的）并注入。
 - 本补丁只改 Connector 的 Python 源码（definition + provider 注册），不碰主程序。
+
+### 疑难：模型下拉框点不开 / 悬停点击没反应
+
+如果模型选择器能显示，但鼠标悬停/点击都没反应，先检查是不是 **OpenCode Desktop 的 GUI 窗口盖在了 AA 主窗口上**（标题可能带「远程控制 - OpenCode」）。OpenCode Desktop 窗口会抢焦点并拦截鼠标事件，导致 AA 收不到点击。
+
+解决：把那个 OpenCode Desktop 窗口最小化或关掉（关 GUI 不影响 headless 的 `opencode-cli.exe acp` server，ACP 按需重启）。可以用任务管理器，或 PowerShell：
+
+```powershell
+Get-Process OpenCode -ErrorAction SilentlyContinue | Stop-Process -Force
+```
+
+另：带 `>` 箭头的模型需要**悬停展开二级菜单，再点具体档位**（Low/Medium/High/Default）才会真正切换；只点模型名本身不会切换。
