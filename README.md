@@ -32,7 +32,7 @@ AA 桌面端前端是 `aa-workbench://web/` → `app.asar` 里的 `renderer/out/
 
 其余 231 个 chunk **完全不动** —— 登录、WebSocket、API 全部保持原版行为。
 
-> ⚠️ **不要用 `apply.py` / `patch_webnext.py`**（源码重建方案）！从 GitHub v2.2.0 源码重新构建的前端和实际打包版本不一致，会导致 WebSocket 连成 `ws://web/...` 而 502、界面卡死。`patch_asar_minimal.py` 是当前唯一可用的方案。
+> ⚠️ **不要从 GitHub v2.2.0 源码重新构建前端**：重建产物和实际打包版本不一致，会导致 WebSocket 连成 `ws://web/...` 而 502、界面卡死。`patch_asar_minimal.py` 是在原版文件上做最小注入，是当前唯一可用的方案。
 
 ## 安装
 
