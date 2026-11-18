@@ -334,6 +334,29 @@ def revert():
                 rt = rt[:start] + restored + rt[end:]
                 io.open(rp, "w", encoding="utf-8").write(rt)
                 log("已还原模型目录", rp)
+        # restore per-model effort patch in catalogs.py
+        cat = os.path.join(d, "acp", "domain", "catalogs.py")
+        if os.path.isfile(cat):
+            ct = io.open(cat, encoding="utf-8").read()
+            marker = "opencode patch: per-model effort support"
+            if marker in ct:
+                start = ct.find("            reasoning_items=(\n                () if (runtime ==")
+                end = ct.find("            ),  # opencode patch: per-model effort support", start)
+                if start >= 0 and end >= 0:
+                    restored = '''            reasoning_items=tuple(
+                RuntimeReasoningItem(
+                    id=effort["value"],
+                    title=effort["name"],
+                    selection_id=selection_id(value["value"], effort["value"]),
+                )
+                for effort in efforts
+            ),'''
+                    ct = ct[:start] + restored + ct[end + len("            ),  # opencode patch: per-model effort support"):]
+                    helper_start = ct.find("\ndef _no_effort_models():")
+                    if helper_start >= 0:
+                        ct = ct[:helper_start] + "\n"
+                    io.open(cat, "w", encoding="utf-8").write(ct)
+                    log("已还原 per-model effort", cat)
         prof = os.path.join(d, "acp", "profiles", "opencode")
         if os.path.isdir(prof):
             shutil.rmtree(prof, ignore_errors=True)
@@ -367,4 +390,10 @@ if __name__ == "__main__":
             sys.exit(1)
         for d in dirs:
             inject(d)
+        # 按 OpenCode 原生 variants 决定哪些模型显示「思考程度」子菜单
+        try:
+            import model_effort_patch
+            model_effort_patch.apply(log)
+        except Exception as e:
+            log("per-model effort patch 失败:", e)
         log("完成，请重新打开 Agents Anywhere。")

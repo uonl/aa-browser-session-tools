@@ -59,6 +59,10 @@ python apply_opencode.py --status   # 查看状态
 - **AA 升级会覆盖 Connector 源码**并重生成缓存目录，升级后重跑一次注入；脚本会自动发现所有目录（含新生成的）并注入。
 - 本补丁只改 Connector 的 Python 源码（definition + provider 注册），不碰主程序。
 
+### 思考程度与 OpenCode 保持一致
+
+AA 的 ACP 数据不暴露每个模型是否支持 reasoning effort，原本会给所有模型都显示「思考程度」子菜单。本补丁（`model_effort_patch.py`，由 `apply_opencode.py` 自动调用）在注入时查询 `opencode api --standalone GET /api/model`，按每个模型的 `variants` 决定：`variants` 为空的模型不显示 effort 子菜单，与 OpenCode Desktop 原生一致。查询失败时用内置兜底列表。
+
 ### 疑难：模型下拉框点不开 / 悬停点击没反应
 
 如果模型选择器能显示，但鼠标悬停/点击都没反应，先检查是不是 **OpenCode Desktop 的 GUI 窗口盖在了 AA 主窗口上**（标题可能带「远程控制 - OpenCode」）。OpenCode Desktop 窗口会抢焦点并拦截鼠标事件，导致 AA 收不到点击。
