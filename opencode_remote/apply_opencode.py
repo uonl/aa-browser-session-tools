@@ -141,6 +141,95 @@ def inject(runtimes_dir):
         elif marker in rt:
             log("模型目录已修复，跳过", rp)
 
+        # Patch 2: ACP session capabilities never emit catalog.effort, so AA
+        # disables every model item that has reasoning efforts (OpenCode models
+        # all do). Emit catalog.effort when any model exposes reasoning items.
+        effort_marker = "catalog.effort (opencode patch)"
+        if effort_marker not in rt:
+            anchor = """        for category in ("model", "permission"):
+            supported = category in categories
+            capabilities.append(
+                RuntimeCapability(
+                    capability_id="catalog." + category,
+                    scope="session",
+                    runtime=self.config.runtime,
+                    session_id=session_id,
+                    supported=supported,
+                    available=supported and ready,
+                )
+            )
+"""
+            addition = anchor + """        # catalog.effort (opencode patch): enable reasoning-effort selection.
+        # OpenCode reports effort as its own config option (category=effort),
+        # so declare the capability whenever any effort option is present.
+        has_effort = any(item.get("category") == "effort" for item in snapshot.options)
+        if has_effort:
+            capabilities.append(RuntimeCapability(
+                capability_id="catalog.effort",
+                scope="session",
+                runtime=self.config.runtime,
+                session_id=session_id,
+                supported=True,
+                available=ready,
+            ))
+"""
+            if anchor in rt:
+                rt = rt.replace(anchor, addition, 1)
+                io.open(rp, "w", encoding="utf-8").write(rt)
+                log("catalog.effort 能力修复", rp)
+            else:
+                log("catalog.effort anchor 未找到", rp)
+
+        # Patch 3: AA encodes model+effort into an opaque acp-selection id when
+        # switching an EXISTING session's model. ACP runtime validated that raw
+        # encoded value against plain option values -> 502 "配置值不在当前可用范围".
+        # Decode it before validating (new sessions go through merge_legacy, but
+        # the update path did not). This is the core fix for "cannot change model".
+        dec_marker = "opencode patch: AA encodes model+effort"
+        if dec_marker not in rt:
+            dec_anchor = """        values = {}
+        for category, value in selections.items():
+            if value is None:
+                continue
+            option = next(
+                (item for item in snapshot.options if item.get("category") == category),
+                None,
+            )
+            if option is None:
+                raise RuntimeInvalidRequestError("当前 Agent 不支持此配置。")
+            values[option["id"]] = value"""
+            dec_repl = """        values = {}
+        for category, value in selections.items():
+            if value is None:
+                continue
+            option = next(
+                (item for item in snapshot.options if item.get("category") == category),
+                None,
+            )
+            if option is None:
+                raise RuntimeInvalidRequestError("当前 Agent 不支持此配置。")
+            # opencode patch: AA encodes model+effort into one selection id;
+            # decode it before validating against the raw option values.
+            if category == "model" and isinstance(value, str) and value.startswith("acp-selection:"):
+                from .domain.catalogs import decode_selection
+                decoded = decode_selection(value)
+                value = decoded.get("model", value)
+                effort = decoded.get("effort")
+                if effort:
+                    eff_opt = next(
+                        (item for item in snapshot.options if item.get("category") == "effort"),
+                        None,
+                    )
+                    if eff_opt:
+                        values[eff_opt["id"]] = effort
+            values[option["id"]] = value"""
+            if dec_anchor in rt:
+                rt = rt.replace(dec_anchor, dec_repl, 1)
+                io.open(rp, "w", encoding="utf-8").write(rt)
+                log("selection 解码修复", rp)
+            else:
+                log("selection 解码 anchor 未找到", rp)
+
     pp = os.path.join(runtimes_dir, "providers.py")
     s = io.open(pp, encoding="utf-8").read()
     if "AcpAgentProvider(OPENCODE)" in s:
