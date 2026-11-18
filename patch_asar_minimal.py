@@ -78,7 +78,7 @@ def patch(asar_path, build=False):
     md = a.read(MD).decode('utf-8', 'replace')
     old_a = 'return(0,t.jsx)("a",{href:e,target:"_blank",rel:"noreferrer",...a,children:r})'
     if old_a in md:
-        new_a = 'return(0,t.jsx)("a",{href:e,target:"_blank",rel:"noreferrer",onClick:function(ev){if(/^https?:\\/\\//i.test(e)&&window.__aaOpenInBrowser){ev.preventDefault();window.__aaOpenInBrowser(e)}},...a,children:r})'
+        new_a = 'return(0,t.jsx)("a",{href:e,target:"_blank",rel:"noreferrer",...a,onClick:function(ev){if(/^https?:\\/\\//i.test(e)&&window.__aaOpenInBrowser){ev.preventDefault();window.__aaOpenInBrowser(e)}else if(a.onClick)a.onClick(ev)},children:r})'
         md = md.replace(old_a, new_a, 1)
         print('markdown link interceptor added')
     else:
@@ -87,7 +87,7 @@ def patch(asar_path, build=False):
     # --- 6b. <code> 里的 URL 也能点击（如 http://127.0.0.1:8779/） ---
     old_code = 'className:(0,m.cn)(e,"rounded-md bg-secondary px-1.5 py-0.5 text-secondary-foreground"),...a,children:r'
     if old_code in md:
-        new_code = 'className:(0,m.cn)(e,"rounded-md bg-secondary px-1.5 py-0.5 text-secondary-foreground cursor-pointer"),onClick:function(ev){var s=typeof r==="string"?r:"";if(/^https?:\\/\\//i.test(s)&&window.__aaOpenInBrowser){ev.preventDefault();ev.stopPropagation();window.__aaOpenInBrowser(s)}},...a,children:r'
+        new_code = 'className:(0,m.cn)(e,"rounded-md bg-secondary px-1.5 py-0.5 text-secondary-foreground cursor-pointer"),...a,onClick:function(ev){var s=typeof r==="string"?r:"";if(/^https?:\\/\\//i.test(s)&&window.__aaOpenInBrowser){ev.preventDefault();ev.stopPropagation();window.__aaOpenInBrowser(s)}else if(a.onClick)a.onClick(ev)},children:r'
         md = md.replace(old_code, new_code, 1)
         print('code URL interceptor added')
     else:
