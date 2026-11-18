@@ -55,7 +55,7 @@ def patch(asar_path, build=False):
     anchor_wf = ';return T.useMemo(()=>({...p,toggleSidebar:g'
     assert anchor_wf in ui, 'wF return anchor not found'
     ui = ui.replace(anchor_wf,
-        ';window.__aaOpenBrowserTab=function(){w("browser")};return T.useMemo(()=>({...p,toggleSidebar:g', 1)
+        ';window.__aaOpenBrowserTab=function(){m({type:"open-tool",tab:pI(hV("browser"),"browser")})};return T.useMemo(()=>({...p,toggleSidebar:g', 1)
     print('global __aaOpenBrowserTab registered')
 
 
