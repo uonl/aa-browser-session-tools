@@ -83,6 +83,32 @@ def patch(asar_path, build=False):
         print('markdown link interceptor added')
     else:
         print('WARN: markdown link anchor not found')
+
+    # --- 6b. <code> 里的 URL 也能点击（如 http://127.0.0.1:8779/） ---
+    old_code = 'className:(0,m.cn)(e,"rounded-md bg-secondary px-1.5 py-0.5 text-secondary-foreground"),...a,children:r'
+    if old_code in md:
+        new_code = 'className:(0,m.cn)(e,"rounded-md bg-secondary px-1.5 py-0.5 text-secondary-foreground cursor-pointer"),onClick:function(ev){var s=typeof r==="string"?r:"";if(/^https?:\\/\\//i.test(s)&&window.__aaOpenInBrowser){ev.preventDefault();ev.stopPropagation();window.__aaOpenInBrowser(s)}},...a,children:r'
+        md = md.replace(old_code, new_code, 1)
+        print('code URL interceptor added')
+    else:
+        print('WARN: code anchor not found')
+
+    # --- 6c. 文件路径 span role=button 加 cursor-pointer ---
+    old_span = 'className:"inline-flex max-w-full items-baseline gap-0.5 rounded-none bg-transparent p-0 align-baseline text-[1em] text-inherit underline underline-offset-2 hover:text-foreground"'
+    if old_span in md:
+        new_span = 'className:"inline-flex max-w-full cursor-pointer items-baseline gap-0.5 rounded-none bg-transparent p-0 align-baseline text-[1em] text-inherit underline underline-offset-2 hover:text-foreground"'
+        md = md.replace(old_span, new_span, 1)
+        print('file-path cursor-pointer added')
+    else:
+        print('WARN: file-path span anchor not found')
+
+    old_span2 = 'className:"inline-flex max-w-full items-baseline gap-0.5 align-baseline text-left underline underline-offset-2 hover:text-foreground"'
+    if old_span2 in md:
+        new_span2 = 'className:"inline-flex max-w-full cursor-pointer items-baseline gap-0.5 align-baseline text-left underline underline-offset-2 hover:text-foreground"'
+        md = md.replace(old_span2, new_span2, 1)
+        print('file-path span2 cursor-pointer added')
+
+
     # --- 7. 注册 __aaOpenInBrowser 全局函数 ---
     open_fn = 'window.__aaOpenInBrowser=function(u){try{localStorage.setItem("aa-browser-goto",u)}catch(e){}if(typeof window.__aaOpenBrowserTab==="function"){window.__aaOpenBrowserTab();return}var bs=document.querySelectorAll(\'button\');for(var i=0;i<bs.length;i++){var al=bs[i].getAttribute(\'aria-label\')||\'\';if(al.indexOf(\'\u6253\u5f00\u5de5\u5177\u4fa7\u680f\')>=0){bs[i].click();setTimeout(function(){if(window.__aaOpenBrowserTab)window.__aaOpenBrowserTab()},500);return}}};'
     ui = ui.replace('function wBrowserPanel', open_fn + 'function wBrowserPanel', 1)
