@@ -14,13 +14,11 @@ variants 为空的模型没有思考程度。AA 的 ACP 数据没有暴露这个
 """
 import os, sys, glob, json, subprocess
 
-# 离线兜底：当前已知无 effort 的模型（查询失败时使用）
+# 离线兜底：真正无 effort 的模型（variants 为空 且 compatibility 无 reasoningField）。
+# 注意：big-pickle / longcat / mimo / nemotron-lightning 虽然 variants 为空，
+# 但 compatibility.reasoningField 存在，OpenCode GUI 仍提供思考程度，不能算无 effort。
 DEFAULT_NO_EFFORT_MODELS = {
-    "opencode/big-pickle",
     "opencode/iceman-free",
-    "opencode/longcat-2.5-free",
-    "opencode/mimo-v2.6-flash-free",
-    "opencode/nemotron-3.5-lightning-free",
     "ollama/dafeiyu:latest",
     "ollama/deepseek-r1:7b",
 }
@@ -90,7 +88,10 @@ def build_no_effort_models():
         data = json.loads(raw[i:])
         found = set()
         for m in data.get("data", []):
-            if not (m.get("variants") or []):
+            variants = m.get("variants") or []
+            compat = m.get("compatibility") or {}
+            # 有 reasoningField 兼容性 => OpenCode GUI 仍提供思考程度，不算无 effort
+            if not variants and "reasoningField" not in compat:
                 found.add(m.get("providerID", "") + "/" + m.get("modelID", ""))
         # ollama 旧 provider 在本机 server 视图里可能缺失，用兜底补齐
         found |= {x for x in DEFAULT_NO_EFFORT_MODELS if x.startswith("ollama/")}

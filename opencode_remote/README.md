@@ -61,7 +61,7 @@ python apply_opencode.py --status   # 查看状态
 
 ### 思考程度与 OpenCode 保持一致
 
-AA 的 ACP 数据不暴露每个模型是否支持 reasoning effort，原本会给所有模型都显示「思考程度」子菜单。本补丁（`model_effort_patch.py`，由 `apply_opencode.py` 自动调用）在注入时查询 `opencode api --standalone GET /api/model`，按每个模型的 `variants` 决定：`variants` 为空的模型不显示 effort 子菜单，与 OpenCode Desktop 原生一致。查询失败时用内置兜底列表。
+AA 的 ACP 数据不暴露每个模型是否支持 reasoning effort，原本会给所有模型都显示「思考程度」子菜单。本补丁（`model_effort_patch.py`，由 `apply_opencode.py` 自动调用）在注入时查询 `opencode api GET /api/model`（background service），判定规则与 OpenCode Desktop 原生一致：**只有 variants 为空且 compatibility 不含 reasoningField 的模型才没有思考程度**。注意 `big-pickle` / `longcat-2.5-free` / `mimo-v2.6-flash-free` / `nemotron-3.5-lightning-free` 虽然 variants 为空，但有 `reasoningField`，GUI 仍提供思考程度——不能算无 effort。查询失败时用内置兜底列表。
 
 ### 疑难：模型下拉框点不开 / 悬停点击没反应
 
