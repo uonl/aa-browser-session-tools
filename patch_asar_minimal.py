@@ -54,9 +54,10 @@ def patch(asar_path, build=False):
     import re
     pat = re.compile(r'("filesDescription"\s*:\s*"((?:[^"\\]|\\.)*)")')
     def repl(m):
-        # 该 chunk 里中文以 \uXXXX 形式编码，值里含 \\u 的是中文区，否则英文区
+        # 中文区的值是 UTF-8 中文（含非 ASCII），英文区是纯 ASCII
         val = m.group(2)
-        if '\\u' in val:
+        is_zh = any(ord(c) > 127 for c in val) or '\\u' in val
+        if is_zh:
             add = ',"browser":"\\u6d4f\\u89c8\\u5668","browserDescription":"\\u5728\\u4fa7\\u680f\\u6d4f\\u89c8\\u7f51\\u9875 / \\u672c\\u5730 HTML"'
         else:
             add = ',"browser":"Browser","browserDescription":"Browse web pages / local HTML in the sidebar"'
