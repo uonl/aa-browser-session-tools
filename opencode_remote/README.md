@@ -36,5 +36,6 @@ Agent 在连接的工作设备上执行，模型和登录沿用本机 OpenCode �
 
 ## 注意
 
-- AA 升级会覆盖 Connector 源码，升级后重跑一次。
+- **OpenCode 升级后需要重跑一次注入**：脚本会自动探测本机所有已安装的 `opencode-cli.exe`（按版本号从新到旧排序）并写入 candidates，所以注入后无论 OpenCode Desktop 升到哪个版本都能找到。`--status` 会显示每个源码目录注入时记录的 CLI 版本。
+- **AA 升级会覆盖 Connector 源码**，升级后重跑一次；新生成的源码缓存目录也会被脚本自动发现并注入。
 - 本补丁只改 Connector 的 Python 源码（definition + provider 注册），不碰主程序。
