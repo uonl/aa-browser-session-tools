@@ -51,6 +51,14 @@ def patch(asar_path, build=False):
     assert old in ui, 'wG anchor not found'
     ui = ui.replace(old, BROWSER_PANEL + '\n' + old, 1)
 
+    # --- 4b. 在 wF hook 里注册全局函数，直接调用 openTool("browser") ---
+    anchor_wf = ';return T.useMemo(()=>({...p,toggleSidebar:g'
+    assert anchor_wf in ui, 'wF return anchor not found'
+    ui = ui.replace(anchor_wf,
+        ';window.__aaOpenBrowserTab=function(){w("browser")};return T.useMemo(()=>({...p,toggleSidebar:g', 1)
+    print('global __aaOpenBrowserTab registered')
+
+
     # --- 5. i18n: add browser labels to BOTH zh-CN and en translation objects ---
     import re
     pat = re.compile(r'("filesDescription"\s*:\s*"((?:[^"\\]|\\.)*)")')
@@ -76,7 +84,7 @@ def patch(asar_path, build=False):
     else:
         print('WARN: markdown link anchor not found')
     # --- 7. 注册 __aaOpenInBrowser 全局函数 ---
-    open_fn = 'window.__aaOpenInBrowser=function(u){try{localStorage.setItem("aa-browser-goto",u)}catch(e){}var all=document.querySelectorAll(\'div,button\');for(var i=0;i<all.length;i++){var el=all[i];var t=(el.textContent||\'\').trim();if(t.indexOf(\'\\u6d4f\\u89c8\\u5668\')>=0&&t.indexOf(\'\\u5728\\u4fa7\\u680f\')>=0&&el.getBoundingClientRect().width>0){var card=el;for(var k=0;k<6&&card;k++){if(card.tagName===\'BUTTON\'){card.click();return}card=card.parentElement}var c=el.parentElement&&el.parentElement.querySelector(\'button\');if(c){c.click();return}}}};'
+    open_fn = 'window.__aaOpenInBrowser=function(u){try{localStorage.setItem("aa-browser-goto",u)}catch(e){}if(typeof window.__aaOpenBrowserTab==="function"){window.__aaOpenBrowserTab();return}var bs=document.querySelectorAll(\'button\');for(var i=0;i<bs.length;i++){var al=bs[i].getAttribute(\'aria-label\')||\'\';if(al.indexOf(\'\u6253\u5f00\u5de5\u5177\u4fa7\u680f\')>=0){bs[i].click();setTimeout(function(){if(window.__aaOpenBrowserTab)window.__aaOpenBrowserTab()},500);return}}};'
     ui = ui.replace('function wBrowserPanel', open_fn + 'function wBrowserPanel', 1)
 
     replacements = {CHUNK: ui.encode('utf-8'), I18N: i18n.encode('utf-8'), MD: md.encode('utf-8')}
