@@ -34,8 +34,20 @@ python apply_opencode.py --revert    # 恢复
 
 Agent 在连接的工作设备上执行，模型和登录沿用本机 OpenCode 配置。
 
+## 自动更新检测
+
+注入的 `definition.py` 在每次被 Connector import 时会**动态探测**本机已安装的 `opencode-cli.exe`，按版本号从新到旧排序。所以：
+
+- **OpenCode Desktop 升级后无需重跑注入脚本** —— 重启 AA（Connector 重新 import）就会自动使用新版本 CLI。
+- `--check` 一键检测：显示当前探测到的 CLI 版本，并确认所有源码目录都是动态探测版（若发现旧版固定路径或未注入的目录会提示重跑）。
+- `--status` 查看各源码目录的注入状态。
+
+```powershell
+python apply_opencode.py --check    # 自动更新检测
+python apply_opencode.py --status   # 查看状态
+```
+
 ## 注意
 
-- **OpenCode 升级后需要重跑一次注入**：脚本会自动探测本机所有已安装的 `opencode-cli.exe`（按版本号从新到旧排序）并写入 candidates，所以注入后无论 OpenCode Desktop 升到哪个版本都能找到。`--status` 会显示每个源码目录注入时记录的 CLI 版本。
-- **AA 升级会覆盖 Connector 源码**，升级后重跑一次；新生成的源码缓存目录也会被脚本自动发现并注入。
+- **AA 升级会覆盖 Connector 源码**并重生成缓存目录，升级后重跑一次注入；脚本会自动发现所有目录（含新生成的）并注入。
 - 本补丁只改 Connector 的 Python 源码（definition + provider 注册），不碰主程序。
