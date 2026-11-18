@@ -8,17 +8,29 @@ Agents Anywhere（AA）的会话页右侧工具有三个 tab：**审阅 / 终端
 
 ## 效果
 
-- 右侧工具侧栏出现四个整齐的卡片：审阅 / 终端 / 文件 / 🌐 浏览器
-- 点「浏览器」tab 打开浏览器面板：地址栏（前进/后退/刷新/关闭）+ Recent 最近访问 + iframe 网页显示
+- 右侧工具侧栏出现四个整齐的卡片：审阅 / 终端 / 文件 / 🌐 浏览器（中英文自动适配）
+- 点「浏览器」tab 打开浏览器面板：地址栏（后退/前进/刷新/关闭）+ 新标签页大搜索栏 + Recent 最近访问 + iframe 网页显示
+- 地址栏输入网址直接打开，输入关键词 800ms 后自动用 Bing 搜索（回车/搜索按钮也行）
+- 对话里的链接、`<code>` URL、文件路径点击会在浏览器 tab 打开，不跳系统浏览器
+- 搜索结果页里的链接（含 `target="_blank"`）**在内置浏览器里跳转**，不开系统浏览器
+- 多个浏览器标签页各有独立 id，关一个不会把其它的一起关掉
 - 深色主题，和 AA 界面一致
 
 ## 原理（重要）
 
-AA 桌面端前端是 `aa-workbench://web/` → `app.asar` 里的 `renderer/out/`（编译后的 Next.js chunk）。
+AA 桌面端前端是 `aa-workbench://web/` → `app.asar` 里的 `renderer/out/`（编译后的 Next.js chunk）。主进程在 `dist/electron/main.js`，preload 在 `dist/electron/preload.js`。
 
-**本项目只在原版编译 chunk 上做最小手术**：
-- `patch_asar_minimal.py` 只改 2 个 chunk 文件（`0axsoae8j5mxk.js` UI + `233tc332t4hy3.js` 翻译），往里注入 browser tab 定义和 BrowserPanel 组件
-- 其它 233 个 chunk **完全不动** —— 登录、WebSocket、API 全部保持原版行为
+**本项目只在原版文件上做最小手术**（`patch_asar_minimal.py`）：
+
+| 文件 | 改动 |
+|---|---|
+| `renderer/out/_next/static/chunks/0axsoae8j5mxk.js` | 注入 browser tab 定义 + BrowserPanel 组件 + 地址栏/搜索栏 + 全局点击拦截 |
+| `renderer/out/_next/static/chunks/233tc332t4hy3.js` | 加中英文界面标签 |
+| `renderer/out/_next/static/chunks/31airuwdveg0l.js` | markdown 链接/文件路径点击拦截 |
+| `dist/electron/main.js` | `setWindowOpenHandler`：外链弹窗不再 `shell.openExternal`，改发 IPC `aa:open-in-browser` |
+| `dist/electron/preload.js` | 暴露 `browser.onOpen` 给渲染层订阅该 IPC |
+
+其余 231 个 chunk **完全不动** —— 登录、WebSocket、API 全部保持原版行为。
 
 > ⚠️ **不要用 `apply.py` / `patch_webnext.py`**（源码重建方案）！从 GitHub v2.2.0 源码重新构建的前端和实际打包版本不一致，会导致 WebSocket 连成 `ws://web/...` 而 502、界面卡死。`patch_asar_minimal.py` 是当前唯一可用的方案。
 
@@ -30,12 +42,12 @@ AA 桌面端前端是 `aa-workbench://web/` → `app.asar` 里的 `renderer/out/
 
 ### 一键安装
 ```powershell
-cd D:\文字\tools\aa-native-browser-tab
+cd <本项目目录>
 python patch_asar_minimal.py --apply
 ```
 脚本会：
 1. 自动备份原版 `app.asar`（`app.asar.bak_before_minimal_browser`）
-2. 在原版 chunk 上注入浏览器 tab
+2. 在上述 5 个文件上做最小注入
 3. 写回 asar
 
 **执行前请完全退出 Agents Anywhere**（托盘图标 → 退出）。完成后重新打开即可。
