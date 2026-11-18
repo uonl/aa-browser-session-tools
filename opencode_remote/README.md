@@ -13,10 +13,17 @@ Agents Anywhere 2.2.0 自带的 runtime 只有 Codex / Claude / DSH / Pi / Herme
 先完全退出 Agents Anywhere，然后：
 
 ```powershell
-python apply_opencode.py             # 注入
+python apply_opencode.py             # 注入（含模型选择修复）
+python apply_opencode.py --check     # 自动更新检测
 python apply_opencode.py --status    # 查看状态
-python apply_opencode.py --revert    # 恢复
+python apply_opencode.py --revert    # 恢复（含模型选择修复）
 ```
+
+### 模型选择修复
+
+AA 的全局模型选择器原本对 ACP runtime 返回空列表（ACP runtime 的 `list_model_catalog` 写死返回空），导致 OpenCode 会话里不能自由选模型。注入脚本会同时 patch `runtimes/acp/runtime.py`，让全局模型目录**合并所有 session 上报的模型配置**（OpenCode 在 `session/new` 时会上报全部可选模型），这样模型选择器就能正常列出所有模型。
+
+`--revert` 会把这个 patch 一并还原。
 
 脚本会自动找到 `~/.agents-anywhere/...` 或 `%APPDATA%/Agents Anywhere/connector/connector-source/<hash>/` 下正在运行的 Connector 源码并进行注册。
 

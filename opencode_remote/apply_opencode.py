@@ -111,6 +111,36 @@ def inject(runtimes_dir):
     io.open(df, "w", encoding="utf-8").write(DEFINITION)
     log("写入", df)
 
+    # Patch: ACP runtime's global model catalog was always empty, so AA's global
+    # model picker had no choices. Merge model options from every session.
+    rp = os.path.join(runtimes_dir, "acp", "runtime.py")
+    if os.path.isfile(rp):
+        rt = io.open(rp, encoding="utf-8").read()
+        marker = "merged from session configurations (opencode patch)"
+        old_fn = """    async def list_model_catalog(self, query=None, limit=100):
+        return RuntimeModelCatalog(runtime=self.config.runtime, revision=0, models=())"""
+        new_fn = """    async def list_model_catalog(self, query=None, limit=100):
+        # """ + marker + """
+        from .domain.catalogs import model_catalog
+        seen = {}
+        revision = 0
+        for key, body in self.app.store.items("configuration"):
+            snap = self.app.configurations.snapshot(key)
+            revision = max(revision, snap.revision)
+            for m in model_catalog(snap, self.config.runtime).models:
+                seen.setdefault(m.id, m)
+        models = tuple(seen.values())
+        if query:
+            q = query.lower()
+            models = tuple(m for m in models if q in m.id.lower() or q in m.title.lower())
+        return RuntimeModelCatalog(runtime=self.config.runtime, revision=revision, models=models[:limit])"""
+        if old_fn in rt and marker not in rt:
+            rt = rt.replace(old_fn, new_fn, 1)
+            io.open(rp, "w", encoding="utf-8").write(rt)
+            log("模型目录修复", rp)
+        elif marker in rt:
+            log("模型目录已修复，跳过", rp)
+
     pp = os.path.join(runtimes_dir, "providers.py")
     s = io.open(pp, encoding="utf-8").read()
     if "AcpAgentProvider(OPENCODE)" in s:
@@ -200,6 +230,21 @@ def check():
 
 def revert():
     for d in find_runtime_dirs():
+        # restore patched runtime.py model catalog method
+        rp = os.path.join(d, "acp", "runtime.py")
+        if os.path.isfile(rp):
+            rt = io.open(rp, encoding="utf-8").read()
+            marker = "merged from session configurations (opencode patch)"
+            if marker in rt:
+                start = rt.index("    async def list_model_catalog(self, query=None, limit=100):")
+                end = rt.index("    async def list_permission_catalog", start)
+                restored = """    async def list_model_catalog(self, query=None, limit=100):
+        return RuntimeModelCatalog(runtime=self.config.runtime, revision=0, models=())
+
+"""
+                rt = rt[:start] + restored + rt[end:]
+                io.open(rp, "w", encoding="utf-8").write(rt)
+                log("已还原模型目录", rp)
         prof = os.path.join(d, "acp", "profiles", "opencode")
         if os.path.isdir(prof):
             shutil.rmtree(prof, ignore_errors=True)
