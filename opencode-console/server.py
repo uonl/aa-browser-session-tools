@@ -14,16 +14,54 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 AA_DB_GLOB = r'C:\Users\sun67\.agents-anywhere\conn_CBGhjuuMLb6KGg\**\coordination.sqlite'
 
-def find_aa_binding(aa_session_id):
-    """读取 AA coordination.sqlite，返回该 AA 会话绑定的 OpenCode session id。"""
+def aa_db():
     dbs = glob.glob(AA_DB_GLOB, recursive=True)
-    if not dbs: return None
-    c = sqlite3.connect('file:' + dbs[0] + '?mode=ro', uri=True)
+    return dbs[0] if dbs else None
+
+def find_aa_binding(aa_session_id):
+    """读取 AA coordination.sqlite，返回该 AA 会话绑定的底层 session id。"""
+    db=aa_db()
+    if not db: return None
+    c = sqlite3.connect('file:' + db + '?mode=ro', uri=True)
     row = c.execute("SELECT body FROM records WHERE kind='binding' AND id=?", (aa_session_id,)).fetchone()
     c.close()
     if not row: return None
     d = json.loads(row[0])
     return d.get('agent_session_id')
+
+def aa_sessions():
+    """列出 AA 自己的所有会话（含 runtime 类型/标题），来自 AA 的云端同步数据不可用时用本地。"""
+    db=aa_db()
+    if not db: return []
+    c = sqlite3.connect('file:' + db + '?mode=ro', uri=True)
+    out=[]
+    for k,b in c.execute("SELECT id,body FROM records WHERE kind='binding'").fetchall():
+        try:
+            d=json.loads(b)
+            out.append({'id':k,'agent_session_id':d.get('agent_session_id'),'profile':d.get('profile_id'),
+                        'release':d.get('release_id'),'cwd':(d.get('workspace') or {}).get('canonical_path','')})
+        except: pass
+    c.close()
+    return out
+
+def aa_messages(aa_session_id):
+    """从 AA projection 表读任意会话的消息（适用所有 runtime：opencode/dsh/claude...）。"""
+    db=aa_db()
+    if not db: return []
+    c = sqlite3.connect('file:' + db + '?mode=ro', uri=True)
+    rows=c.execute("SELECT body FROM records WHERE kind='projection' AND json_extract(body,'$.sessionId')=? ORDER BY CAST(json_extract(body,'$.orderSeq') AS INTEGER)",(aa_session_id,)).fetchall()
+    c.close()
+    out=[]
+    for (b,) in rows:
+        try:
+            d=json.loads(b)
+            role=d.get('role','')
+            if role not in ('user','assistant'): continue
+            content=d.get('content') or {}
+            text=content.get('text','') if isinstance(content,dict) else str(content)
+            if text and str(text).strip(): out.append({'role':role,'text':text})
+        except: pass
+    return out
 
 CLI_CANDIDATES = [
     r'C:\Users\sun67\AppData\Roaming\ai.opencode.desktop\cli\2.3.2-x64\opencode-cli.exe',
@@ -208,6 +246,17 @@ class H(BaseHTTPRequestHandler):
             try:
                 ocid=find_aa_binding(aa)
                 self.send_json({'aa':aa,'opencode_session':ocid});return
+            except Exception as e:
+                self.send_json({'error':str(e)});return
+        if path=='/api/aa/sessions':
+            try:
+                self.send_json({'sessions':aa_sessions()});return
+            except Exception as e:
+                self.send_json({'error':str(e)});return
+        if path=='/api/aa/messages':
+            aa=urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('aa',[''])[0]
+            try:
+                self.send_json({'messages':aa_messages(aa)});return
             except Exception as e:
                 self.send_json({'error':str(e)});return
         self.send_json({'error':'not found'},404)
