@@ -1,85 +1,61 @@
-# 会话绑定同步功能 —— 可行性研究
+# 会话绑定同步功能 —— 可行性研究（最终）
 
 日期：2026-11-19
 
 ## 需求
+让 AA 能读取任意 OpenCode session（不只是它绑定的那个），用户自己选读哪个。
 
-在 AA 会话界面加「绑定 OpenCode 会话」按钮，用户选一个 OpenCode session 绑定后，
-能读取对方的会话历史消息，之后消息实时互通。
+## 核心发现：AA 后端本来就有这个机制！
 
-## 现状调研
+深入研究 Connector 源码（`runtimes/acp/runtime.py`、`server/runtime_session_rpc.py`）发现：
 
-### 数据结构
-- **OpenCode sessions/messages**：`G:\opencode-data\share\opencode\opencode.db`
-  - `session_v2`：135 个 session（id / title / directory / time_updated）
-  - `session_message`：32789 条消息（id / session_id / type / seq / data）
-  - user 消息文本在 `data.text`；assistant 消息文本在 `data.content` 的 text 块里
-- **AA sessions**：`%APPDATA%/Agents Anywhere/connector/connector-source/*/.../coordination.sqlite`
-  - `records` 表（kind / id / body），关键 kind：`binding` / `projection` / `configuration`
-  - `binding`：每个 AA session 已绑定一个 `agent_session_id`（即底层 OpenCode session）
-  - `projection`：AA 会话的消息 timeline（type=message/tool，含 orderSeq / contentHash / source）
+1. **`session.discover` RPC**（`server/runtime_session_rpc.py:21`）：
+   - 调 `runtime.list_sessions()`（`runtimes/acp/runtime.py:462`）
+   - 后者通过 `inventory_client.list_sessions()` 调 OpenCode ACP 的 `session/list`，
+     实测 OpenCode 声明了 `sessionCapabilities.list` 且能返回全部 135 个 session
+   - 为每个未绑定的 session 生成 `acp_native_xxx` 的 AA sessionId，存 `native_inventory`，
+     标记 `readOnly: True`
 
-### 关键结论：AA 会话和它绑定的 OpenCode session 本来就是实时互通的
-AA 通过 ACP 驱动底层 OpenCode session，二者是「同一个会话的两个界面」。所以
-「绑定一对会话」本质是：**把某个 AA 会话的 `agent_session_id` 改成用户选的 OpenCode
-session，并把那个 session 的历史消息灌进 AA 的 timeline**。
+2. **`session.sync` RPC**（`server/runtime_session_rpc.py:58`）：
+   - `runtime.get_session_snapshot()`（`runtimes/acp/runtime.py:505`）对 native session
+     调用 **`aa/read_history`** 扩展读取该 session 的完整历史消息
+   - 通过 `host.timeline_sync()` 把历史推送到云端 dashboard
 
-## POC 验证结果：直接改 sqlite 失败（已恢复原状）
+3. 所以理论上：调用 `session.discover` 导入 sessions → AA 前端打开某个 native session →
+   Connector 用 `aa/read_history` 读历史 → 推到云端 → AA 界面显示。**整条链路后端都现成。**
 
-尝试：停 AA → 直接改 coordination.sqlite（灌 17 条转换后的消息 + 改 binding）→ 重启 AA。
+## 障碍（为什么现在用不了）
 
-结果：
-1. **AA 前端仍显示原会话内容** —— AA 前端读的是**云端 dashboard** 的数据，
-   本地 projection 变更没有被推送到云端
-2. **改 binding 后 Connector resume 新 session 失败** —— 会话变成「执行者已断开」
-3. 已用备份 + 清除 WAL 完全恢复原状 ✓
+1. **ACP runtime 的 `sync_mode = "events"`**（`runtimes/acp/runtime.py:71`）：
+   `sync_existing_once` 对 events runtime 直接 `continue`，所以 `list_sessions` 从不被
+   自动调用，`native_inventory` 永远是空（实测 0 条）
 
-**结论：不能靠直接改数据库实现。**
+2. **AA 前端完全没有 discover 入口**：
+   遍历 app.asar 所有 JS chunk，搜不到任何 `discover` / `session.discover` 代码。
+   前端不会主动调用这个 RPC。
 
-## 同步机制分析（为什么本地改动不生效）
+3. **connector-source 目录不稳定**：实验性手动 patch `runtime.py` 后，AA 重启会把
+   connector-source 还原/换新 hash 目录，非注入脚本的改动会丢失。所有持久补丁必须
+   写进 `apply_opencode.py` 并在每次重启后重跑。
 
-Connector 的同步链路（`server/runtime_sync.py`）：
-```
-sync_existing_loop（每 30 秒）
-  → sync_existing_once（遍历所有 runtime/session）
-    → sync_existing_session
-      → 若 session.metadata.sync.requires_timeline_sync == True：
-           get_session_snapshot（从本地 projection 表读 timeline）
-           → ingest_snapshot（推送到云端 dashboard）
-      → 否则只推 meta/state，不推完整 timeline
-```
+## 直接改 sqlite 的方案（已证伪，已恢复）
+POC：停 AA → 灌 projection + 改 binding → 重启。结果：AA 前端读云端数据，本地改动
+不同步；改 binding 导致 resume 失败「执行者已断开」。已用备份完全恢复。
 
-**关键点**：普通空闲会话的 `requires_timeline_sync` 是 False，所以即使本地 projection
-被改了，Connector 也不会重新推送 timeline —— 这就是 POC 失败的原因。
+## 可行的实现路径（若要继续）
+1. 把「自动 discover」写进 `apply_opencode.py`（注入时 patch ACP runtime 的
+   `list_sessions` 调用逻辑），重启后重跑注入使其生效
+2. 解决 events 模式下 native sessions 的 meta 如何推到云端（events runtime 的
+   `discover_sessions` 不推 meta，需走 `resynchronize` 或类似路径）
+3. 前端加「导入/选择 OpenCode 会话」按钮，调用 dashboard 的 discover RPC，展示列表
 
-## 正规实现方案（可行，但工程量大）
+工作量：中等偏大；风险：改动 Connector 核心同步机制 + 前端，升级易失效。
 
-要真正实现，必须走 Connector 的正规 store API + 触发同步：
-
-1. **新增 Connector RPC**（如 `session.bindExternal`）：
-   - 用 `app.store.put("projection", ...)` 写入转换后的消息（而非直接改 sqlite）
-   - 用 `app.store.put("binding", ...)` 改 agent_session_id（保留 generation 一致性）
-   - 把 session 标记为 changed / `requires_timeline_sync = True`，触发下一次同步推送
-   - 走正规 `resume` 流程加载新 session（处理 generation 匹配）
-2. **前端加按钮**：在 AA 会话界面注入「绑定 OpenCode 会话」按钮 + 会话选择下拉，
-   调用新 RPC
-3. **处理消息格式转换**：OpenCode content 块 → AA projection（user/assistant/tool）
-
-### 难点 / 风险
-- 改 binding 后 `resume` 的 generation 一致性（`owner_generation` / `connection_generation`）
-  必须正确处理，否则会话变成「执行者已断开」（POC 中已遇到）
-- 历史消息里有大量 tool 调用（POC 的 session 24 条消息里 17 条文本、其余 tool），
-  tool 消息的 AA 格式转换更复杂
-- Connector / AA 升级会覆盖注入的 RPC 和前端 patch，需要重跑注入脚本
-- 改动 AA 核心会话机制，出错可能损坏会话数据
-
-## 建议
-
-- **如果要做**：先做 Connector RPC（命令行调用验证同步链路），确认能正确推送历史消息
-  到云端并在 AA 界面显示，再加前端按钮
-- **如果要稳**：保持现状不做。AA 会话已经和各自绑定的 OpenCode session 实时互通，
-  用户想用哪个 OpenCode 会话，直接在 AA 里「新会话 → 选 OpenCode + 对应项目」即可
+## 保守建议
+AA 会话已和各自绑定的 OpenCode session 实时互通。若要读某个 OpenCode session 的历史，
+最稳妥的是在 OpenCode 里直接看，或在 AA 里「新会话 → 选 OpenCode」开新会话。
 
 ## 相关文件
-- `session_bridge.py`：探索用脚本，`--list` 能列两边会话，`--bind ...`（不带 --apply）
-  能预览消息转换。**注意：其 `--apply` 直接改 sqlite 的方式经验证不生效，不要使用。**
+- `session_bridge.py`：`--list` 可列两边会话；`--bind ...` 可预览转换。其 `--apply`
+  直接改 sqlite 经验证不生效，不要使用。
+- `apply_opencode.py`：所有持久补丁的正确入口。
