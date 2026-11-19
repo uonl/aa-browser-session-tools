@@ -64,9 +64,24 @@ Copy-Item "G:\anywhere\Agents Anywhere\resources\app.asar.bak_before_minimal_bro
 
 `opencode_remote/` 目录里是把 OpenCode 注册为 AA ACP runtime 的注入包。详情见 [opencode_remote/README.md](opencode_remote/README.md)。
 
-## 附赠：OpenCode 会话控制台
+## 附赠：在 AA 原生界面查看/操作 OpenCode 会话
 
-`opencode-console/` 是一个本地 Web 工具，让你在 AA 的浏览器 tab 里**查看并操作任意 OpenCode 会话**（列全部会话、看历史、发消息继续聊）。启动 `python opencode-console/server.py` 后在 AA 浏览器 tab 打开 `http://127.0.0.1:8891`。详情见 [opencode-console/README.md](opencode-console/README.md)。
+AA 输入框工具栏里注入了一个 **「🌐 会话」按钮**（在附件图标旁边）。点它弹出原生下拉面板：
+
+- 列出 OpenCode 的全部会话（按目录分组、可筛选）
+- 点任意会话查看完整历史消息
+- 底部输入框可直接给该会话发消息继续聊
+
+实现：本补丁在前端注入按钮和面板 JS（`opencode-console/panel_inject.js`），数据源是本地服务
+`opencode-console/server.py`（默认 8891 端口），它通过 `opencode api` 命令访问 OpenCode。
+
+**使用前先启动本地服务**：
+```powershell
+python opencode-console/server.py
+```
+然后点 AA 输入框的「🌐 会话」按钮即可。服务绑定 127.0.0.1，机器重启后需重跑。
+
+详情见 [opencode-console/README.md](opencode-console/README.md)。
 
 ## 注意事项
 

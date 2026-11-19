@@ -9,8 +9,21 @@
 启动：python server.py [--port 8891]
 然后到 AA 浏览器 tab 打开 http://127.0.0.1:8891
 """
-import os, sys, json, glob, subprocess, argparse, urllib.request, urllib.parse
+import os, sys, json, glob, subprocess, argparse, urllib.request, urllib.parse, sqlite3
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+AA_DB_GLOB = r'C:\Users\sun67\.agents-anywhere\conn_CBGhjuuMLb6KGg\**\coordination.sqlite'
+
+def find_aa_binding(aa_session_id):
+    """读取 AA coordination.sqlite，返回该 AA 会话绑定的 OpenCode session id。"""
+    dbs = glob.glob(AA_DB_GLOB, recursive=True)
+    if not dbs: return None
+    c = sqlite3.connect('file:' + dbs[0] + '?mode=ro', uri=True)
+    row = c.execute("SELECT body FROM records WHERE kind='binding' AND id=?", (aa_session_id,)).fetchone()
+    c.close()
+    if not row: return None
+    d = json.loads(row[0])
+    return d.get('agent_session_id')
 
 CLI_CANDIDATES = [
     r'C:\Users\sun67\AppData\Roaming\ai.opencode.desktop\cli\2.3.2-x64\opencode-cli.exe',
@@ -146,9 +159,16 @@ load();
 
 class H(BaseHTTPRequestHandler):
     def log_message(self,*a): pass
+    def _cors(self):
+        self.send_header('Access-Control-Allow-Origin','*')
+        self.send_header('Access-Control-Allow-Methods','GET,POST,OPTIONS')
+        self.send_header('Access-Control-Allow-Headers','Content-Type')
+    def do_OPTIONS(self):
+        self.send_response(204);self._cors();self.end_headers()
     def send_json(self,obj,code=200):
         b=json.dumps(obj,ensure_ascii=False).encode('utf-8')
         self.send_response(code);self.send_header('Content-Type','application/json; charset=utf-8')
+        self._cors()
         self.send_header('Content-Length',str(len(b)));self.end_headers();self.wfile.write(b)
     def do_GET(self):
         path=urllib.parse.urlparse(self.path).path
@@ -181,6 +201,13 @@ class H(BaseHTTPRequestHandler):
                         text=str(content)
                     if text.strip(): out.append({'role':role,'text':text})
                 self.send_json({'messages':out});return
+            except Exception as e:
+                self.send_json({'error':str(e)});return
+        if path=='/api/binding':
+            aa=urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get('aa',[''])[0]
+            try:
+                ocid=find_aa_binding(aa)
+                self.send_json({'aa':aa,'opencode_session':ocid});return
             except Exception as e:
                 self.send_json({'error':str(e)});return
         self.send_json({'error':'not found'},404)
