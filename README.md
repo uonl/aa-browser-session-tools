@@ -64,6 +64,10 @@ Copy-Item "G:\anywhere\Agents Anywhere\resources\app.asar.bak_before_minimal_bro
 
 `opencode_remote/` 目录里是把 OpenCode 注册为 AA ACP runtime 的注入包。详情见 [opencode_remote/README.md](opencode_remote/README.md)。
 
+## 附赠：OpenCode 会话控制台
+
+`opencode-console/` 是一个本地 Web 工具，让你在 AA 的浏览器 tab 里**查看并操作任意 OpenCode 会话**（列全部会话、看历史、发消息继续聊）。启动 `python opencode-console/server.py` 后在 AA 浏览器 tab 打开 `http://127.0.0.1:8891`。详情见 [opencode-console/README.md](opencode-console/README.md)。
+
 ## 注意事项
 
 - AA 升级会覆盖 `app.asar`，升级后重跑 `patch_asar_minimal.py --apply`。
